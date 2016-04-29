@@ -1,12 +1,59 @@
 # -*- coding: utf-8 -*-
 
+import socket
 import wx
+
+from threading import Thread
+from wx.lib.pubsub import pub
+
+class SocketThread(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+
+        self.server_address = ('localhost', 2016)
+        print 'starting up on %s port %s' % self.server_address
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.bind(self.server_address)
+        self.sock.listen(1)
+
+        self.setDaemon(True)
+        self.start()
+
+    def run(self):
+        """
+        Run the socket "server"
+        """
+        while True:
+            # Wait for a connection
+            print 'waiting for a connection'
+            client, addr = self.sock.accept()
+
+            try:
+                print 'connection from', addr
+
+                received = client.recv(4096)
+                print received
+                wx.CallAfter(pub.sendMessage, "panelListener", message=received)
+
+            except socket.error, err:
+                print "Socket error! %s" % err
+                break
+
+        # shutdown the socket
+        try:
+            self.sock.shutdown(socket.SHUT_RDWR)
+
+        finally:
+            self.sock.close()
 
 class MainFrame(wx.Frame):
 
     def __init__(self, parent, title):
         super(MainFrame, self).__init__(parent, title=title,
             size=(720, 640))
+
+        self.tcp = SocketThread()
+        pub.subscribe(self.receivedMessage, "panelListener")
 
         self.InitUI()
         self.SetIcon(wx.Icon("images/icon.png"))
@@ -34,12 +81,19 @@ class MainFrame(wx.Frame):
 
         self.Bind(wx.EVT_MENU, self.OnQuit, fitem)
         self.Bind(wx.EVT_MENU, self.OnAboutBox, aboutitem)
-        self.panel.Bind(wx.EVT_KEY_DOWN, self.KeyKoardCatch)
+        self.panel.Bind(wx.EVT_KEY_DOWN, self.KeyboardCatch)
 
         self.statusbar = self.CreateStatusBar()
         self.statusbar.SetStatusText('Ready')
 
-    def KeyKoardCatch(self, e):
+    def receivedMessage(self, message):
+        """
+        Listener function
+        """
+        print "Received the following message: " + message
+        self.statusbar.SetStatusText("Received the following message: " + message)
+
+    def KeyboardCatch(self, e):
         keycode = e.GetKeyCode()
         print keycode
         if keycode == wx.WXK_SPACE:
