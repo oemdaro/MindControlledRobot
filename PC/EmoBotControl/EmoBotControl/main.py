@@ -9,11 +9,13 @@ class MainFrame(wx.Frame):
             size=(720, 640))
 
         self.InitUI()
-        self.SetFocus()
+        self.SetIcon(wx.Icon("images/icon.png"))
         self.Centre()
         self.Show(True)
 
     def InitUI(self):
+        self.panel = wx.Panel(self, wx.ID_ANY)
+        self.panel.SetFocus()
         menubar = wx.MenuBar()
 
         fileMenu = wx.Menu()
@@ -32,9 +34,17 @@ class MainFrame(wx.Frame):
 
         self.Bind(wx.EVT_MENU, self.OnQuit, fitem)
         self.Bind(wx.EVT_MENU, self.OnAboutBox, aboutitem)
+        self.panel.Bind(wx.EVT_KEY_DOWN, self.KeyKoardCatch)
 
         self.statusbar = self.CreateStatusBar()
         self.statusbar.SetStatusText('Ready')
+
+    def KeyKoardCatch(self, e):
+        keycode = e.GetKeyCode()
+        print keycode
+        if keycode == wx.WXK_SPACE:
+            print "you pressed the spacebar!"
+        e.Skip()
 
     def OnQuit(self, e):
         self.Close()
