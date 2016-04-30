@@ -32,7 +32,6 @@ class SocketThread(Thread):
                 print 'connection from', addr
 
                 received = client.recv(4096)
-                print received
                 wx.CallAfter(pub.sendMessage, "panelListener", message=received)
 
             except socket.error, err:
@@ -42,6 +41,9 @@ class SocketThread(Thread):
         # shutdown the socket
         try:
             self.sock.shutdown(socket.SHUT_RDWR)
+
+        except:
+            pass
 
         finally:
             self.sock.close()
@@ -96,8 +98,28 @@ class MainFrame(wx.Frame):
     def KeyboardCatch(self, e):
         keycode = e.GetKeyCode()
         print keycode
-        if keycode == wx.WXK_SPACE:
-            print "you pressed the spacebar!"
+        message = ""
+        if keycode == 65:
+            message = "a"
+        elif keycode == 68:
+            message = "d"
+        elif keycode == 87:
+            message = "w"
+        elif keycode == 83:
+            message = "s"
+        else:
+            message = "Unknown command."
+
+        try:
+            client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            client.connect(('localhost', 2016))
+            client.sendall(message)
+            client.shutdown(socket.SHUT_RDWR)
+            client.close()
+
+        except Exception, exc:
+            print exc
+
         e.Skip()
 
     def OnQuit(self, e):
