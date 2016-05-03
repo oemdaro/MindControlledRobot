@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import socket
-import wx
-
 from threading import Thread
+
+import wx
 from wx.lib.pubsub import pub
+
 
 class SocketThread(Thread):
     def __init__(self):
@@ -14,7 +15,7 @@ class SocketThread(Thread):
         print 'starting up on %s port %s' % self.server_address
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind(self.server_address)
-        self.sock.listen(1)
+        self.sock.listen(5)
 
         self.setDaemon(True)
         self.start()
@@ -24,11 +25,10 @@ class SocketThread(Thread):
         Run the socket "server"
         """
         while True:
-            # Wait for a connection
-            print 'waiting for a connection'
-            client, addr = self.sock.accept()
-
             try:
+                # Wait for a connection
+                print 'waiting for a connection'
+                client, addr = self.sock.accept()
                 print 'connection from', addr
 
                 received = client.recv(4096)
@@ -44,27 +44,41 @@ class SocketThread(Thread):
 
         except:
             pass
+        self.sock.close()
 
-        finally:
-            self.sock.close()
+
+class MainPanel(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent)
+
+        self.SetFocus()
 
 class MainFrame(wx.Frame):
 
     def __init__(self, parent, title):
         super(MainFrame, self).__init__(parent, title=title,
-            size=(720, 640))
+                                        size=(720, 640))
 
         self.tcp = SocketThread()
         pub.subscribe(self.receivedMessage, "panelListener")
 
-        self.InitUI()
         self.SetIcon(wx.Icon("images/icon.png"))
+        self.panel = MainPanel(self)
+        self.statusbar = self.CreateStatusBar()
+        self.InitUI()
+
+        try:
+            self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.client.connect(('localhost', 2015))
+
+        except socket.error, err:
+            print err
+            self.statusbar.SetStatusText('Please start TCP server before running GUI. Otherwise, command out will not working')
+
         self.Centre()
         self.Show(True)
 
     def InitUI(self):
-        self.panel = wx.Panel(self, wx.ID_ANY)
-        self.panel.SetFocus()
         menubar = wx.MenuBar()
 
         fileMenu = wx.Menu()
@@ -85,7 +99,6 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnAboutBox, aboutitem)
         self.panel.Bind(wx.EVT_KEY_DOWN, self.KeyboardCatch)
 
-        self.statusbar = self.CreateStatusBar()
         self.statusbar.SetStatusText('Ready')
 
     def receivedMessage(self, message):
@@ -111,11 +124,8 @@ class MainFrame(wx.Frame):
             message = "Unknown command."
 
         try:
-            client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client.connect(('localhost', 2016))
-            client.sendall(message)
-            client.shutdown(socket.SHUT_RDWR)
-            client.close()
+            self.client.sendall(message)
+            self.statusbar.SetStatusText("Send the following message: " + message)
 
         except Exception, exc:
             print exc
@@ -123,6 +133,8 @@ class MainFrame(wx.Frame):
         e.Skip()
 
     def OnQuit(self, e):
+        self.client.shutdown(socket.SHUT_RDWR)
+        self.client.close()
         self.Close()
 
     def OnAboutBox(self, e):
