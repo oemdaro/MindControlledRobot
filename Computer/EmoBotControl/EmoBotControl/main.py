@@ -61,48 +61,6 @@ class ThreadServer(object):
         print 'Starting up TCP Server. Server listening on {0} port {1}'.format(ip, port)
 
 
-# class SocketThread(threading.Thread):
-#
-#     def __init__(self):
-#         threading.Thread.__init__(self)
-#
-#         self.server_address = ('0.0.0.0', 2016)
-#         print 'Starting up TCP Server. Server listening on %s port %s' % self.server_address
-#         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#         self.sock.bind(self.server_address)
-#         self.sock.listen(1)
-#
-#         self.setDaemon(True)
-#         self.start()
-#
-#     def run(self):
-#         """
-#         Run the socket "server"
-#         """
-#         while True:
-#             try:
-#                 # Wait for a connection
-#                 print 'waiting for a connection'
-#                 client, addr = self.sock.accept()
-#                 print 'connection from', addr
-#
-#                 received = client.recv(4096)
-#                 wx.CallAfter(pub.sendMessage, "panelListener", message=received)
-#
-#             except socket.error, err:
-#                 print "Socket error! %s" % err
-#                 break
-#
-#         # shutdown the socket
-#         try:
-#             self.sock.shutdown(socket.SHUT_RDWR)
-#
-#         except:
-#             pass
-#
-#         self.sock.close()
-
-
 class MainPanel(wx.Panel):
 
     def __init__(self, parent):
@@ -119,12 +77,17 @@ class MainFrame(wx.Frame):
 
         # Start TCP thread server
         self.threadServer = ThreadServer()
-        pub.subscribe(self.receivedImage, "panelListener")
+        pub.subscribe(self.ReceivedImage, "panelListener")
 
         self.SetIcon(wx.Icon("images/icon.png"))
         self.panel = MainPanel(self)
         self.statusbar = self.CreateStatusBar()
         self.InitUI()
+
+        # timer setup
+        self.timer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self.OnShowVideo)
+        self.timer.Start(100)
 
         self.Centre()
         self.Show(True)
@@ -152,17 +115,16 @@ class MainFrame(wx.Frame):
 
         self.statusbar.SetStatusText('Ready')
 
-    def receivedImage(self, image):
-        """
-        Listener function
-        """
-        cv2.imshow("Video Stream", image)
+    def ReceivedImage(self, image):
         # print "Received image..."
+        cv2.imshow("Video Stream", image)
         # Save as file
         cv2.imwrite('images/stream.jpg', image)
+
+    def OnShowVideo(self, event):
         img_out = wx.Image('images/stream.jpg')
         bitmap_in = img_out.ConvertToBitmap()
-        wx.StaticBitmap(self, -1, bitmap_in, (0, 0), self.GetClientSize())
+        wx.StaticBitmap(self, -1, bitmap_in, (0, 0), self.Fit())
 
     def KeyboardCatch(self, e):
         keycode = e.GetKeyCode()
