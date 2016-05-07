@@ -1,15 +1,16 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import about
-import cv2
-import numpy as np
-import socket
 import SocketServer
+import socket
 import threading
 
+import cv2
+import numpy as np
 import wx
 from wx.lib.pubsub import pub
+
+import about
 
 
 class VideoStreamHandler(SocketServer.StreamRequestHandler):
@@ -27,9 +28,10 @@ class VideoStreamHandler(SocketServer.StreamRequestHandler):
                     jpg = stream_bytes[first:last + 2]
                     stream_bytes = stream_bytes[last + 2:]
                     image = cv2.imdecode(np.fromstring(jpg, dtype=np.uint8),
-                                         cv2.CV_LOAD_IMAGE_UNCHANGED)
+                                         cv2.IMREAD_UNCHANGED)
 
-                    cv2.imshow('image', image)
+                    #cv2.imshow('image', image)
+                    wx.CallAfter(pub.sendMessage, "panelListener", image=image)
 
         finally:
             cv2.destroyAllWindows()
@@ -45,61 +47,60 @@ class ThreadServer(object):
         # Port 0 means to select an arbitrary unused port
         HOST, PORT = "0.0.0.0", 2016
 
-        server = ThreadedTCPServer((HOST, PORT), VideoStreamHandler)
-        ip, port = server.server_address
+        self.server = ThreadedTCPServer((HOST, PORT), VideoStreamHandler)
+        ip, port = self.server.server_address
 
         # Start a thread with the server -- that thread will then start one
         # more thread for each request
-        server_thread = threading.Thread(target=server.serve_forever)
+        server_thread = threading.Thread(target=self.server.serve_forever)
         # Exit the server thread when the main thread terminates
         server_thread.daemon = True
         server_thread.start()
 
         print "Server loop running in thread:", server_thread.name
-        print 'Starting up TCP on {0} port {1}'.format(ip, port)
+        print 'Starting up TCP Server. Server listening on {0} port {1}'.format(ip, port)
 
 
-
-class SocketThread(threading.Thread):
-
-    def __init__(self):
-        threading.Thread.__init__(self)
-
-        self.server_address = ('0.0.0.0', 2016)
-        print 'Starting up TCP Server. Server listening on %s port %s' % self.server_address
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.bind(self.server_address)
-        self.sock.listen(1)
-
-        self.setDaemon(True)
-        self.start()
-
-    def run(self):
-        """
-        Run the socket "server"
-        """
-        while True:
-            try:
-                # Wait for a connection
-                print 'waiting for a connection'
-                client, addr = self.sock.accept()
-                print 'connection from', addr
-
-                received = client.recv(4096)
-                wx.CallAfter(pub.sendMessage, "panelListener", message=received)
-
-            except socket.error, err:
-                print "Socket error! %s" % err
-                break
-
-        # shutdown the socket
-        try:
-            self.sock.shutdown(socket.SHUT_RDWR)
-
-        except:
-            pass
-
-        self.sock.close()
+# class SocketThread(threading.Thread):
+#
+#     def __init__(self):
+#         threading.Thread.__init__(self)
+#
+#         self.server_address = ('0.0.0.0', 2016)
+#         print 'Starting up TCP Server. Server listening on %s port %s' % self.server_address
+#         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#         self.sock.bind(self.server_address)
+#         self.sock.listen(1)
+#
+#         self.setDaemon(True)
+#         self.start()
+#
+#     def run(self):
+#         """
+#         Run the socket "server"
+#         """
+#         while True:
+#             try:
+#                 # Wait for a connection
+#                 print 'waiting for a connection'
+#                 client, addr = self.sock.accept()
+#                 print 'connection from', addr
+#
+#                 received = client.recv(4096)
+#                 wx.CallAfter(pub.sendMessage, "panelListener", message=received)
+#
+#             except socket.error, err:
+#                 print "Socket error! %s" % err
+#                 break
+#
+#         # shutdown the socket
+#         try:
+#             self.sock.shutdown(socket.SHUT_RDWR)
+#
+#         except:
+#             pass
+#
+#         self.sock.close()
 
 
 class MainPanel(wx.Panel):
@@ -117,8 +118,8 @@ class MainFrame(wx.Frame):
                                         size=(720, 640))
 
         # Start TCP thread server
-        ThreadServer()
-        pub.subscribe(self.receivedMessage, "panelListener")
+        self.threadServer = ThreadServer()
+        pub.subscribe(self.receivedImage, "panelListener")
 
         self.SetIcon(wx.Icon("images/icon.png"))
         self.panel = MainPanel(self)
@@ -151,12 +152,17 @@ class MainFrame(wx.Frame):
 
         self.statusbar.SetStatusText('Ready')
 
-    def receivedMessage(self, message):
+    def receivedImage(self, image):
         """
         Listener function
         """
-        print "Received the following message: " + message
-        self.statusbar.SetStatusText("Received the following message: " + message)
+        cv2.imshow("Video Stream", image)
+        # print "Received image..."
+        # Save as file
+        cv2.imwrite('images/stream.jpg', image)
+        img_out = wx.Image('images/stream.jpg')
+        bitmap_in = img_out.ConvertToBitmap()
+        wx.StaticBitmap(self, -1, bitmap_in, (0, 0), self.GetClientSize())
 
     def KeyboardCatch(self, e):
         keycode = e.GetKeyCode()
@@ -194,6 +200,8 @@ class MainFrame(wx.Frame):
         e.Skip()
 
     def OnQuit(self, e):
+        self.threadServer.server.shutdown()
+        self.threadServer.server.server_close()
         self.Close()
 
     def OnAboutBox(self, e):
