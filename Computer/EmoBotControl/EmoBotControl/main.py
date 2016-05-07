@@ -43,7 +43,7 @@ class ThreadServer(object):
 
     def __init__(self):
         # Port 0 means to select an arbitrary unused port
-        HOST, PORT = "localhost", 2016
+        HOST, PORT = "0.0.0.0", 2016
 
         server = ThreadedTCPServer((HOST, PORT), VideoStreamHandler)
         ip, port = server.server_address
@@ -65,8 +65,8 @@ class SocketThread(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
 
-        self.server_address = ('localhost', 2016)
-        print 'starting up on %s port %s' % self.server_address
+        self.server_address = ('0.0.0.0', 2016)
+        print 'Starting up TCP Server. Server listening on %s port %s' % self.server_address
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind(self.server_address)
         self.sock.listen(1)
@@ -175,7 +175,7 @@ class MainFrame(wx.Frame):
 
         try:
             self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.client.connect(('localhost', 2015))
+            self.client.connect(('192.168.1.13', 2015))
             self.client.sendall(message)
             self.statusbar.SetStatusText("Send the following message: " + message)
 
