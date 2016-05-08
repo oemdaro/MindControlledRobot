@@ -8,7 +8,6 @@ import threading
 import cv2
 import numpy as np
 import wx
-from wx.lib.pubsub import pub
 
 import about
 
@@ -21,7 +20,7 @@ class VideoStreamHandler(SocketServer.StreamRequestHandler):
         # stream video frames one by one
         try:
             while True:
-                stream_bytes += self.rfile.read(1024)
+                stream_bytes += self.rfile.read(2048)
                 first = stream_bytes.find('\xff\xd8')
                 last = stream_bytes.find('\xff\xd9')
                 if first != -1 and last != -1:
@@ -30,8 +29,7 @@ class VideoStreamHandler(SocketServer.StreamRequestHandler):
                     image = cv2.imdecode(np.fromstring(jpg, dtype=np.uint8),
                                          cv2.IMREAD_UNCHANGED)
 
-                    #cv2.imshow('image', image)
-                    wx.CallAfter(pub.sendMessage, "panelListener", image=image)
+                    cv2.imwrite('images/stream.jpg', image)
 
         finally:
             cv2.destroyAllWindows()
@@ -73,11 +71,10 @@ class MainFrame(wx.Frame):
 
     def __init__(self, parent, title):
         super(MainFrame, self).__init__(parent, title=title,
-                                        size=(720, 640))
+                                        size=(656, 562))
 
         # Start TCP thread server
         self.threadServer = ThreadServer()
-        pub.subscribe(self.ReceivedImage, "panelListener")
 
         self.SetIcon(wx.Icon("images/icon.png"))
         self.panel = MainPanel(self)
@@ -114,12 +111,6 @@ class MainFrame(wx.Frame):
         self.panel.Bind(wx.EVT_KEY_DOWN, self.KeyboardCatch)
 
         self.statusbar.SetStatusText('Ready')
-
-    def ReceivedImage(self, image):
-        # print "Received image..."
-        cv2.imshow("Video Stream", image)
-        # Save as file
-        cv2.imwrite('images/stream.jpg', image)
 
     def OnShowVideo(self, event):
         img_out = wx.Image('images/stream.jpg')
