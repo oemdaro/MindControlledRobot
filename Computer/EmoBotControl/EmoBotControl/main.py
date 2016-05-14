@@ -43,7 +43,7 @@ class ThreadServer(object):
     """docstring for ShowCapture"""
 
     def __init__(self):
-        # Port 0 means to select an arbitrary unused port
+        # Host 0.0.0.0 means to listen all ip address
         HOST, PORT = "0.0.0.0", 2016
 
         self.server = ThreadedTCPServer((HOST, PORT), VideoStreamHandler)
@@ -76,7 +76,6 @@ class ShowCapture(wx.Panel):
         self.SetFocus()
 
     def ReceivedImage(self, image):
-        # print "Received image..."
         self.capture = image
         frame = self.capture
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -187,7 +186,7 @@ class MainFrame(wx.Frame):
 
 if __name__ == '__main__':
     app = wx.App()
-    frame = MainFrame(None, title='EmoBotControl')
+    frame = MainFrame(None, title='MindBotControl')
     frame.Centre()
     cap = ShowCapture(frame)
     frame.Show()
