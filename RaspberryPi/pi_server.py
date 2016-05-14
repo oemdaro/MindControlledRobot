@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+# Install pyserial with command "pip install pyserial"
+import serial
 import socket
 import sys
 
@@ -14,6 +16,9 @@ sock.bind(server_address)
 # Listen for incoming connections
 sock.listen(1)
 
+# Plug arduino and scan port with command: ls /dev/tty*
+ser = serial.Serial('/dev/ttyACM0', 115200)
+
 while True:
     # Wait for a connection
     print >>sys.stderr, 'waiting for a connection'
@@ -26,6 +31,7 @@ while True:
         while True:
             data = connection.recv(4096)
             print >>sys.stderr, 'received "%s"' % data
+            ser.write(data)
             if not data:
                 print >>sys.stderr, 'no more data from', client_address
                 break
@@ -33,4 +39,3 @@ while True:
     finally:
         # Clean up the connection
         connection.close()
-
