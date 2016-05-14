@@ -8,7 +8,7 @@ import sys
 # Create a TCP/IP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-# Bind the socket to the port
+# Host 0.0.0.0 means to listen all ip address
 server_address = ('0.0.0.0', 2015)
 print >>sys.stderr, 'Starting up TCP Server. Server listening on %s port %s' % server_address
 sock.bind(server_address)
@@ -27,7 +27,7 @@ while True:
     try:
         print >>sys.stderr, 'connection from', client_address
 
-        # Receive the data in small chunks and retransmit it
+        # Receive the data and transmit it to Arduino over serial usb
         while True:
             data = connection.recv(4096)
             print >>sys.stderr, 'received "%s"' % data
