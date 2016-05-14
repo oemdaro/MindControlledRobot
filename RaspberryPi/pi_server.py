@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Install pyserial with command "pip install pyserial"
+# Install pyserial with command: pip install pyserial
 import serial
 import socket
 import sys
