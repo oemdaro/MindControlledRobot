@@ -1,110 +1,59 @@
 #include <NewPing.h>
-#include <Servo.h>
 
-#define SONAR_NUM      2 // Number of sensors.
+#define TRIGGER_PIN  2  // Arduino pin tied to trigger pin on the ultrasonic sensor.
+#define ECHO_PIN     3  // Arduino pin tied to echo pin on the ultrasonic sensor.
 #define MAX_DISTANCE 200 // Maximum distance (in cm) to ping.
-#define PING_INTERVAL 33 // Milliseconds between sensor pings (29ms is about the min to avoid cross-sensor echo).
 
-unsigned long pingTimer[SONAR_NUM]; // Holds the times when the next ping should happen for each sensor.
-unsigned int cm[SONAR_NUM];         // Where the ping distances are stored.
-uint8_t currentSensor = 0;          // Keeps track of which sensor is active.
+unsigned int cm;         // Where the ping distances are stored.
 
 // Declare L298N Dual H-Bridge Motor Controller directly since there is not a library to load.
+const int speed = 200;
+// Back Motor 1 (Left)
+uint8_t int1B1 = 4;
+uint8_t int2B1 = 7;
+int enB1 = 5; // Needs to be a PWM pin to be able to control motor speed
+// Back Motor 2 (Right)
+uint8_t int1B2 = 8;
+uint8_t int2B2 = 9;
+int enB2 = 6; // Needs to be a PWM pin to be able to control motor speed
+// Front Motor 1 (Left)
+uint8_t int1F1 = 12;
+uint8_t int2F1 = 13;
+int enF1 = 10; // Needs to be a PWM pin to be able to control motor speed
+// Front Motor 2 (Right)
+uint8_t int1F2 = A0;
+uint8_t int2F2 = A1;
+int enF2 = 11; // Needs to be a PWM pin to be able to control motor speed
 
-// Motor A
-uint8_t dir1PinA = 2;
-uint8_t dir2PinA = 3;
-int speedPinA = 4; // Needs to be a PWM pin to be able to control motor speed
-
-// Motor B
-uint8_t dir1PinB = 5;
-uint8_t dir2PinB = 6;
-int speedPinB = 7; // Needs to be a PWM pin to be able to control motor speed
-
-const int servoPin = 6; // the digital pin used for the first servo
-
-NewPing sonar[SONAR_NUM] = {     // Sensor object array.
-  NewPing(22, 23, MAX_DISTANCE), // Each sensor's trigger pin, echo pin, and max distance to ping.
-  NewPing(24, 25, MAX_DISTANCE),
-};
-
-Servo servo;  // create servo object to control a servo
+NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE); // NewPing setup of pins and maximum distance.
 
 void setup() {
-  // initialize serial communication @ 115200 baud
-  Serial.begin(115200);
   
-  pinMode(dir1PinA,OUTPUT);
-  pinMode(dir2PinA,OUTPUT);
-  pinMode(speedPinA,OUTPUT);
-  pinMode(dir1PinB,OUTPUT);
-  pinMode(dir2PinB,OUTPUT);
-  pinMode(speedPinB,OUTPUT);
+  pinMode(int1B1,OUTPUT);
+  pinMode(int2B1,OUTPUT);
+  pinMode(int1B2,OUTPUT);
+  pinMode(int2B2,OUTPUT);
+  pinMode(int1F1,OUTPUT);
+  pinMode(int2F1,OUTPUT);
+  pinMode(int1F2,OUTPUT);
+  pinMode(int2F2,OUTPUT);
+  pinMode(enB1,OUTPUT);
+  pinMode(enB2,OUTPUT);
+  pinMode(enF1,OUTPUT);
+  pinMode(enF2,OUTPUT);
 
-  servo.attach(servoPin);  // attaches the servo on pin 9 to the servo object
-  servo.write(0);
-  pingTimer[0] = millis() + 75;           // First ping starts at 75ms, gives time for the Arduino to chill before starting.
-  for (uint8_t i = 1; i < SONAR_NUM; i++) // Set the starting time for each sensor.
-    pingTimer[i] = pingTimer[i - 1] + PING_INTERVAL;
+  // Open serial communication @ 115200 baud and wait for port to open:
+  Serial.begin(115200);
+  while (!Serial) {
+    ; // wait for serial port to connect. Needed for native USB port only
+  }
 }
 
 void loop() {
-  for (uint8_t angle = 15; angle <= 165; angle++) {
-    // write servo angle position
-    servo.write(angle);
-    
-    for (uint8_t i = 0; i < SONAR_NUM; i++) { // Loop through all the sensors.
-      if (millis() >= pingTimer[i]) {         // Is it this sensor's time to ping?
-        pingTimer[i] += PING_INTERVAL * SONAR_NUM;  // Set next time this sensor will be pinged.
-        if (i == 0 && currentSensor == SONAR_NUM - 1) oneSensorCycle(); // Sensor ping cycle complete, do something with the results.
-        sonar[currentSensor].timer_stop();          // Make sure previous timer is canceled before starting a new ping (insurance).
-        currentSensor = i;                          // Sensor being accessed.
-        cm[currentSensor] = 0;                      // Make distance zero in case there's no ping echo for this sensor.
-        sonar[currentSensor].ping_timer(echoCheck); // Do the ping (processing continues, interrupt will call echoCheck to look for echo).
-      }
-    }
-
-    // Other code that *DOESN'T* analyze ping results can go here.
-    doStaff(); // All logic controller is implemented here
-    delay(30); // delay for 30 ms
-  }
-
-  for (uint8_t angle = 165; angle > 15; angle--) {
-    // write servo angle position
-    servo.write(angle);
-
-    // ping ultrasonic sensor
-    for (uint8_t i = 0; i < SONAR_NUM; i++) { // Loop through all the sensors.
-      if (millis() >= pingTimer[i]) {         // Is it this sensor's time to ping?
-        pingTimer[i] += PING_INTERVAL * SONAR_NUM;  // Set next time this sensor will be pinged.
-        if (i == 0 && currentSensor == SONAR_NUM - 1) oneSensorCycle(); // Sensor ping cycle complete, do something with the results.
-        sonar[currentSensor].timer_stop();          // Make sure previous timer is canceled before starting a new ping (insurance).
-        currentSensor = i;                          // Sensor being accessed.
-        cm[currentSensor] = 0;                      // Make distance zero in case there's no ping echo for this sensor.
-        sonar[currentSensor].ping_timer(echoCheck); // Do the ping (processing continues, interrupt will call echoCheck to look for echo).
-      }
-    }
-
-    // Other code that *DOESN'T* analyze ping results can go here.
-    doStaff(); // All logic controller is implemented here
-    delay(30); // delay for 30 ms
-  }
-}
-
-void echoCheck() { // If ping received, set the sensor distance to array.
-  if (sonar[currentSensor].check_timer())
-    cm[currentSensor] = sonar[currentSensor].ping_result / US_ROUNDTRIP_CM;
-}
-
-void oneSensorCycle() { // Sensor ping cycle complete, do something with the results.
-  // The following code would be replaced with your code that does something with the ping results.
-  for (uint8_t i = 0; i < SONAR_NUM; i++) {
-    Serial.print(i);
-    Serial.print("=");
-    Serial.print(cm[i]);
-    Serial.print("cm ");
-  }
-  Serial.println();
+  // Wait 50ms between pings (about 20 pings/sec). 29ms should be the shortest delay between pings.
+  // delay(50); 
+  cm = sonar.ping_cm();
+  doStaff(); // All logic controller is implemented here
 }
 
 void doStaff() {
@@ -132,23 +81,99 @@ void doStaff() {
       break;
     default:
       // default state
+      stopMotor();
       break;
   }
 }
 
+void stopMotor() {
+  analogWrite(enB1, 0);
+  analogWrite(enB2, 0);
+  analogWrite(enF1, 0);
+  analogWrite(enF2, 0);
+}
+
 void goForward() {
-  // move robot forward
+  // Stop motor before change direction
+  stopMotor();
+  delay(100);
+  
+  // Back Motor
+  digitalWrite(int1B1, HIGH);
+  digitalWrite(int2B1, LOW);
+  digitalWrite(int1B2, HIGH);
+  digitalWrite(int2B2, LOW);
+  analogWrite(enB1, speed);
+  analogWrite(enB2, speed);
+  // Front Motor
+  digitalWrite(int1F1, HIGH);
+  digitalWrite(int2F1, LOW);
+  digitalWrite(int1F2, HIGH);
+  digitalWrite(int2F2, LOW);
+  analogWrite(enF1, speed);
+  analogWrite(enF2, speed);
 }
 
 void goBackward() {
-  // move robot backward
+  // Stop motor before change direction
+  stopMotor();
+  delay(100);
+  
+  // Back Motor
+  digitalWrite(int1B1, LOW);
+  digitalWrite(int2B1, HIGH);
+  digitalWrite(int1B2, LOW);
+  digitalWrite(int2B2, HIGH);
+  analogWrite(enB1, speed);
+  analogWrite(enB2, speed);
+  // Front Motor
+  digitalWrite(int1F1, LOW);
+  digitalWrite(int2F1, HIGH);
+  digitalWrite(int1F2, LOW);
+  digitalWrite(int2F2, HIGH);
+  analogWrite(enF1, speed);
+  analogWrite(enF2, speed);
 }
 
 void goLeft() {
-  // move robot left direction
+  // Stop motor before change direction
+  stopMotor();
+  delay(100);
+  
+  // Back Motor
+  digitalWrite(int1B1, LOW);
+  digitalWrite(int2B1, HIGH);
+  digitalWrite(int1B2, HIGH);
+  digitalWrite(int2B2, LOW);
+  analogWrite(enB1, speed);
+  analogWrite(enB2, speed);
+  // Front Motor
+  digitalWrite(int1F1, LOW);
+  digitalWrite(int2F1, HIGH);
+  digitalWrite(int1F2, HIGH);
+  digitalWrite(int2F2, LOW);
+  analogWrite(enF1, speed);
+  analogWrite(enF2, speed);
 }
 
 void goRight() {
-  // move robot right direction
+  // Stop motor before change direction
+  stopMotor();
+  delay(100);
+  
+  // Back Motor
+  digitalWrite(int1B1, HIGH);
+  digitalWrite(int2B1, LOW);
+  digitalWrite(int1B2, LOW);
+  digitalWrite(int2B2, HIGH);
+  analogWrite(enB1, speed);
+  analogWrite(enB2, speed);
+  // Front Motor
+  digitalWrite(int1F1, HIGH);
+  digitalWrite(int2F1, LOW);
+  digitalWrite(int1F2, LOW);
+  digitalWrite(int2F2, HIGH);
+  analogWrite(enF1, speed);
+  analogWrite(enF2, speed);
 }
 
