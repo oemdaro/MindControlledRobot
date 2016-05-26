@@ -61,30 +61,34 @@ void loop() {
 }
 
 void doStaff(unsigned long cm) {
-  uint8_t serIn = 0;
+  char serIn = '0';
   if (Serial.available()) {
     serIn = Serial.read();
   }
   
   switch (serIn) {
-    case 1:
+    case 'w':
       if (cm <= 15) {
         stopMotor();
         // delay(50);
       } else {
+        Serial.println("Move robot forward");
         // move robot forward
         goForward();
       }
       break;
-    case 2:
+    case 's':
+      Serial.println("Move robot backward");
       // move robot backward
       goBackward();
       break;
-    case 3:
+    case 'a':
+      Serial.println("Move robot to left direction");
       // move robot to left direction
       goLeft();
       break;
-    case 4:
+    case 'd':
+      Serial.println("Move robot to right direction");
       // move robot to right direction
       goRight();
       break;
