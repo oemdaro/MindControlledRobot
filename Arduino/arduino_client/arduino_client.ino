@@ -4,8 +4,6 @@
 #define ECHO_PIN     3  // Arduino pin tied to echo pin on the ultrasonic sensor.
 #define MAX_DISTANCE 200 // Maximum distance (in cm) to ping.
 
-unsigned int cm;         // Where the ping distances are stored.
-
 // Declare L298N Dual H-Bridge Motor Controller directly since there is not a library to load.
 const int speed = 200;
 // Back Motor 1 (Left)
@@ -52,11 +50,14 @@ void setup() {
 void loop() {
   // Wait 50ms between pings (about 20 pings/sec). 29ms should be the shortest delay between pings.
   // delay(50); 
-  cm = sonar.ping_cm();
-  doStaff(); // All logic controller is implemented here
+  int cm = sonar.ping_cm();
+  if (cm <= 15) {
+    stopMotor();
+  }
+  doStaff(cm); // All logic controller is implemented here
 }
 
-void doStaff() {
+void doStaff(int cm) {
   uint8_t serIn = 0;
   if (Serial.available()) {
     serIn = Serial.read();
@@ -64,8 +65,13 @@ void doStaff() {
   
   switch (serIn) {
     case 1:
-      // move robot forward
-      goForward();
+      if (cm <= 15) {
+        stopMotor();
+        delay(50);
+      } else {
+        // move robot forward
+        goForward();
+      }
       break;
     case 2:
       // move robot backward
