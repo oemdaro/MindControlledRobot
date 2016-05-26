@@ -49,15 +49,18 @@ void setup() {
 
 void loop() {
   // Wait 50ms between pings (about 20 pings/sec). 29ms should be the shortest delay between pings.
-  // delay(50); 
-  int cm = sonar.ping_cm();
+  delay(50); 
+  unsigned long cm = sonar.ping_cm();
+  Serial.print("Ping: ");
+  Serial.print(cm); // Send ping, get distance in cm and print result (0 = outside set distance range)
+  Serial.println("cm");
   if (cm <= 15) {
     stopMotor();
   }
   doStaff(cm); // All logic controller is implemented here
 }
 
-void doStaff(int cm) {
+void doStaff(unsigned long cm) {
   uint8_t serIn = 0;
   if (Serial.available()) {
     serIn = Serial.read();
@@ -67,7 +70,7 @@ void doStaff(int cm) {
     case 1:
       if (cm <= 15) {
         stopMotor();
-        delay(50);
+        // delay(50);
       } else {
         // move robot forward
         goForward();
