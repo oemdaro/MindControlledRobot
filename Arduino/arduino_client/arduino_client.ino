@@ -4,29 +4,30 @@
 #define ECHO_PIN     3  // Arduino pin tied to echo pin on the ultrasonic sensor.
 #define MAX_DISTANCE 200 // Maximum distance (in cm) to ping.
 
-// Declare L298N Dual H-Bridge Motor Controller directly since there is not a library to load.
-const int speed = 200;
+// Declare L298N Dual H-Bridge Motor Controller directly
+// since there is not a library to load.
+// 1 => left; 2 => right
 // Back Motor 1 (Left)
-uint8_t int1B1 = 4;
-uint8_t int2B1 = 7;
-int enB1 = 5; // Needs to be a PWM pin to be able to control motor speed
+#define int1B1 4
+#define int2B1 5
 // Back Motor 2 (Right)
-uint8_t int1B2 = 8;
-uint8_t int2B2 = 9;
-int enB2 = 6; // Needs to be a PWM pin to be able to control motor speed
+#define int1B2 8
+#define int2B2 9
 // Front Motor 1 (Left)
-uint8_t int1F1 = 12;
-uint8_t int2F1 = 13;
-int enF1 = 10; // Needs to be a PWM pin to be able to control motor speed
+#define int1F1 6
+#define int2F1 7
 // Front Motor 2 (Right)
-uint8_t int1F2 = A0;
-uint8_t int2F2 = A1;
-int enF2 = 11; // Needs to be a PWM pin to be able to control motor speed
+#define int1F2 10
+#define int2F2 11
 
-NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE); // NewPing setup of pins and maximum distance.
+const int DELAY = 500;
+
+unsigned long cm = 0;
+// NewPing setup of pins and maximum distance.
+NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE); 
 
 void setup() {
-  
+  // declear pin
   pinMode(int1B1,OUTPUT);
   pinMode(int2B1,OUTPUT);
   pinMode(int1B2,OUTPUT);
@@ -35,10 +36,16 @@ void setup() {
   pinMode(int2F1,OUTPUT);
   pinMode(int1F2,OUTPUT);
   pinMode(int2F2,OUTPUT);
-  pinMode(enB1,OUTPUT);
-  pinMode(enB2,OUTPUT);
-  pinMode(enF1,OUTPUT);
-  pinMode(enF2,OUTPUT);
+
+  // set initial pin state
+  digitalWrite(int1B1,LOW);
+  digitalWrite(int2B1,LOW);
+  digitalWrite(int1B2,LOW);
+  digitalWrite(int2B2,LOW);
+  digitalWrite(int1F1,LOW);
+  digitalWrite(int2F1,LOW);
+  digitalWrite(int1F2,LOW);
+  digitalWrite(int2F2,LOW);
 
   // Open serial communication @ 115200 baud and wait for port to open:
   Serial.begin(115200);
@@ -48,19 +55,21 @@ void setup() {
 }
 
 void loop() {
-  // Wait 50ms between pings (about 20 pings/sec). 29ms should be the shortest delay between pings.
+  // Wait 50ms between pings (about 20 pings/sec). 
+  // 29ms should be the shortest delay between pings.
   delay(50); 
-  unsigned long cm = sonar.ping_cm();
+  cm = sonar.ping_cm();
   Serial.print("Ping: ");
-  Serial.print(cm); // Send ping, get distance in cm and print result (0 = outside set distance range)
+  // Send ping, get distance in cm and print result (0 = outside set distance range)
+  Serial.print(cm);
   Serial.println("cm");
-  if (cm <= 15) {
-    stopMotor();
-  }
+//  if (cm <= 20) {
+//    stopMotor();
+//  }
   doStaff(cm); // All logic controller is implemented here
 }
 
-void doStaff(unsigned long cm) {
+void doStaff(unsigned long distance) {
   char serIn = '0';
   if (Serial.available()) {
     serIn = Serial.read();
@@ -68,14 +77,14 @@ void doStaff(unsigned long cm) {
   
   switch (serIn) {
     case 'w':
-      if (cm <= 15) {
-        stopMotor();
-        // delay(50);
-      } else {
+//      if (distance <= 20) {
+//        stopMotor();
+//        // delay(50);
+//      } else {
         Serial.println("Move robot forward");
         // move robot forward
         goForward();
-      }
+//      }
       break;
     case 's':
       Serial.println("Move robot backward");
@@ -100,93 +109,83 @@ void doStaff(unsigned long cm) {
 }
 
 void stopMotor() {
-  analogWrite(enB1, 0);
-  analogWrite(enB2, 0);
-  analogWrite(enF1, 0);
-  analogWrite(enF2, 0);
-}
-
-void goForward() {
-  // Stop motor before change direction
-  stopMotor();
-  delay(100);
-  
   // Back Motor
-  digitalWrite(int1B1, HIGH);
+  digitalWrite(int1B1, LOW);
   digitalWrite(int2B1, LOW);
-  digitalWrite(int1B2, HIGH);
+  digitalWrite(int1B2, LOW);
   digitalWrite(int2B2, LOW);
-  analogWrite(enB1, speed);
-  analogWrite(enB2, speed);
   // Front Motor
-  digitalWrite(int1F1, HIGH);
+  digitalWrite(int1F1, LOW);
   digitalWrite(int2F1, LOW);
-  digitalWrite(int1F2, HIGH);
+  digitalWrite(int1F2, LOW);
   digitalWrite(int2F2, LOW);
-  analogWrite(enF1, speed);
-  analogWrite(enF2, speed);
 }
 
 void goBackward() {
   // Stop motor before change direction
   stopMotor();
   delay(100);
-  
-  // Back Motor
-  digitalWrite(int1B1, LOW);
-  digitalWrite(int2B1, HIGH);
+  // Left Motor
+  digitalWrite(int1B1, HIGH);
+  digitalWrite(int2B1, LOW);
+  digitalWrite(int1F1, HIGH);
+  digitalWrite(int2F1, LOW);
+  // Right Motor
   digitalWrite(int1B2, LOW);
   digitalWrite(int2B2, HIGH);
-  analogWrite(enB1, speed);
-  analogWrite(enB2, speed);
-  // Front Motor
-  digitalWrite(int1F1, LOW);
-  digitalWrite(int2F1, HIGH);
   digitalWrite(int1F2, LOW);
   digitalWrite(int2F2, HIGH);
-  analogWrite(enF1, speed);
-  analogWrite(enF2, speed);
+  delay(DELAY);
+}
+
+void goForward() {
+  // Stop motor before change direction
+  stopMotor();
+  delay(100);
+  // Left Motor
+  digitalWrite(int1B1, LOW);
+  digitalWrite(int2B1, HIGH);
+  digitalWrite(int1F1, LOW);
+  digitalWrite(int2F1, HIGH);
+  // Right Motor
+  digitalWrite(int1B2, HIGH);
+  digitalWrite(int2B2, LOW);
+  digitalWrite(int1F2, HIGH);
+  digitalWrite(int2F2, LOW);
+  delay(DELAY);
 }
 
 void goLeft() {
   // Stop motor before change direction
   stopMotor();
   delay(100);
-  
-  // Back Motor
-  digitalWrite(int1B1, LOW);
-  digitalWrite(int2B1, HIGH);
+  // Left Motor
+  digitalWrite(int1B1, HIGH);
+  digitalWrite(int2B1, LOW);
+  digitalWrite(int1F1, HIGH);
+  digitalWrite(int2F1, LOW);
+  // Right Motor  
   digitalWrite(int1B2, HIGH);
   digitalWrite(int2B2, LOW);
-  analogWrite(enB1, speed);
-  analogWrite(enB2, speed);
-  // Front Motor
-  digitalWrite(int1F1, LOW);
-  digitalWrite(int2F1, HIGH);
   digitalWrite(int1F2, HIGH);
   digitalWrite(int2F2, LOW);
-  analogWrite(enF1, speed);
-  analogWrite(enF2, speed);
+  delay(DELAY);
 }
 
 void goRight() {
   // Stop motor before change direction
   stopMotor();
   delay(100);
-  
-  // Back Motor
-  digitalWrite(int1B1, HIGH);
-  digitalWrite(int2B1, LOW);
+  // Left Motor
+  digitalWrite(int1B1, LOW);
+  digitalWrite(int2B1, HIGH);
+  digitalWrite(int1F1, LOW);
+  digitalWrite(int2F1, HIGH);
+  // Right Motor
   digitalWrite(int1B2, LOW);
   digitalWrite(int2B2, HIGH);
-  analogWrite(enB1, speed);
-  analogWrite(enB2, speed);
-  // Front Motor
-  digitalWrite(int1F1, HIGH);
-  digitalWrite(int2F1, LOW);
   digitalWrite(int1F2, LOW);
   digitalWrite(int2F2, HIGH);
-  analogWrite(enF1, speed);
-  analogWrite(enF2, speed);
+  delay(DELAY);
 }
 
