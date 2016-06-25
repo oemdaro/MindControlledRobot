@@ -186,7 +186,7 @@ class MainFrame(wx.Frame):
 
 if __name__ == '__main__':
     app = wx.App()
-    frame = MainFrame(None, title='MindBotControl')
+    frame = MainFrame(None, title='Mind Bot Control')
     frame.Centre()
     cap = ShowCapture(frame)
     frame.Show()
