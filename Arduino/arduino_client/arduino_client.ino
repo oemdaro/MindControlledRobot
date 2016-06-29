@@ -63,9 +63,6 @@ void loop() {
   // Send ping, get distance in cm and print result (0 = outside set distance range)
   Serial.print(cm);
   Serial.println("cm");
-//  if (cm <= 20) {
-//    stopMotor();
-//  }
   doStaff(cm); // All logic controller is implemented here
 }
 
@@ -77,14 +74,14 @@ void doStaff(unsigned long distance) {
   
   switch (serIn) {
     case 'w':
-//      if (distance <= 20) {
-//        stopMotor();
-//        // delay(50);
-//      } else {
+      if (distance <= 20) {
+        stopMotor();
+        delay(100);
+      } else {
         Serial.println("Move robot forward");
         // move robot forward
         goForward();
-//      }
+      }
       break;
     case 's':
       Serial.println("Move robot backward");
